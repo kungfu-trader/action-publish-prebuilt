@@ -1,0 +1,10 @@
+name: "Publish Artifacts to AWS"
+author: "Keren Dong"
+description: "Publish GitHub artifacts to AWS S3"
+inputs:
+  artifacts-path:
+    description: "Where to find the artifacts"
+    required: true
+runs:
+  using: "node12"
+  main: "dist/index.js"
