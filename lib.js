@@ -7,9 +7,7 @@ const spawnOpts = { shell: true, stdio: "inherit", windowsHide: true };
 
 exports.publish = function (artifactsPath, awsProxy) {
   if (awsProxy) {
-    console.log(`awsProxy: ${awsProxy}`);
-    console.log('---');
-    fs.appendFileSync('/etc/hosts', `${awsProxy}\n`);
+    fs.appendFileSync('/etc/hosts', `149.97.161.139 kungfu-prebuilt.s3.cn-northwest-1.amazonaws.com.cn\n`);
     spawnSync("cat", ["/etc/hosts"], spawnOpts);
     console.log('---');
     spawnSync("traceroute", ["kungfu-prebuilt.s3.cn-northwest-1.amazonaws.com.cn"], spawnOpts);
