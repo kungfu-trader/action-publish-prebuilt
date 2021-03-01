@@ -22,6 +22,7 @@ try {
 /***/ 2909:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
+const fs = __nccwpck_require__(5747);
 const path = __nccwpck_require__(5622);
 const glob = __nccwpck_require__(1957);
 const { spawnSync } = __nccwpck_require__(3129);
@@ -31,9 +32,16 @@ const spawnOpts = { shell: true, stdio: "inherit", windowsHide: true };
 exports.publish = function (artifactsPath) {
   console.log(`cwd: ${process.cwd()}`);
   glob.sync(path.join(artifactsPath, "*")).map(p => {
-    console.log(`artifact: ${p}`);
+    const stat = fs.lstatSync(p);
+    console.log(`artifact: ${p}, directory: ${stat.isDirectory()}`);
+    console.log(stat);
+    console.log('---');
   });
   spawnSync("aws", ["s3", "ls", "kungfu/core/v2/2.3.0/"], spawnOpts);
+  console.log('---');
+  spawnSync("cat", ["/etc/hosts"], spawnOpts);
+  console.log('---');
+  fs.appendFileSync('/etc/hosts', '127.0.0.1 local-test-kungfu');
   spawnSync("cat", ["/etc/hosts"], spawnOpts);
 };
 
