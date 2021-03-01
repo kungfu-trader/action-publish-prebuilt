@@ -32,15 +32,21 @@ const spawnOpts = { shell: true, stdio: "inherit", windowsHide: true };
 
 exports.publish = function (artifactsPath, awsProxy) {
   if (awsProxy) {
+    console.log(`awsProxy: ${awsProxy}`);
+    console.log('---');
     fs.appendFileSync('/etc/hosts', `${awsProxy}\n`);
     spawnSync("cat", ["/etc/hosts"], spawnOpts);
+    console.log('---');
     spawnSync("traceroute", ["kungfu-prebuilt.s3.cn-northwest-1.amazonaws.com.cn"], spawnOpts);
     console.log('---');
   }
   glob.sync(path.join(artifactsPath, "*")).map(artifactPath => {
     glob.sync(path.join(artifactPath, "*", "build", "stage", "*")).forEach(prebuiltPath => {
       const name = path.basename(prebuiltPath);
-      const aws_args = ["s3", "sync", prebuiltPath, `s3://kungfu-prebuilt/${name}`, "--acl", "public-read", "--only-show-errors"];
+      const aws_args = [
+        "s3", "sync", prebuiltPath, `s3://kungfu-prebuilt/${name}`,
+        "--acl", "public-read", "--only-show-errors"
+      ];
       console.log(`$ aws ${aws_args.join(' ')}`);
       spawnSync("aws", aws_args, spawnOpts);
     });
