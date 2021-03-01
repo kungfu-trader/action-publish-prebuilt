@@ -30,7 +30,6 @@ const { spawnSync } = __nccwpck_require__(3129);
 const spawnOpts = { shell: true, stdio: "inherit", windowsHide: true };
 
 exports.publish = function (artifactsPath) {
-  console.log(`cwd: ${process.cwd()}`);
   glob.sync(path.join(artifactsPath, "*")).map(artifactPath => {
     console.log(`artifact: ${artifactPath}`);
     fs.readdirSync(artifactPath).forEach(file => {
