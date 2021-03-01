@@ -33,8 +33,9 @@ exports.publish = function (artifactsPath) {
   glob.sync(path.join(artifactsPath, "*")).map(artifactPath => {
     console.log(`artifact: ${artifactPath}`);
     fs.readdirSync(artifactPath).forEach(file => {
-      const stat = fs.lstatSync(path.join(artifactPath, file));
-      console.log(`\t${file} size=${stat.size}`);
+      const artifactFile = path.resolve(path.join(artifactPath, file));
+      const stat = fs.lstatSync(artifactFile);
+      console.log(`\t${artifactFile} size=${stat.size}`);
     });
   });
   console.log('---');
