@@ -5,7 +5,8 @@ const { publish } = require("./lib.js");
 try {
     const context = github.context;
     const artifactsPath = core.getInput('artifacts-path');
-    publish(artifactsPath);
+    const awsProxy = core.getInput('aws-proxy');
+    publish(artifactsPath, awsProxy);
 } catch (error) {
     core.setFailed(error.message);
 }

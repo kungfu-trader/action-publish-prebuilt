@@ -5,6 +5,9 @@ inputs:
   artifacts-path:
     description: "Where to find the artifacts"
     required: true
+  aws-proxy:
+    description: "AWS proxy in /etc/hosts"
+    required: false
 runs:
   using: "node12"
   main: "dist/index.js"
