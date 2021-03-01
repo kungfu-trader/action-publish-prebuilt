@@ -12,8 +12,9 @@ const { publish } = __nccwpck_require__(2909);
 try {
     const context = github.context;
     const artifactsPath = core.getInput('artifacts-path');
+    const s3Bucket = core.getInput('s3-bucket');
     const awsProxy = core.getInput('aws-proxy');
-    publish(artifactsPath, awsProxy);
+    publish(artifactsPath, s3Bucket, awsProxy);
 } catch (error) {
     core.setFailed(error.message);
 }
@@ -30,27 +31,26 @@ const { spawnSync } = __nccwpck_require__(3129);
 
 const spawnOpts = { shell: true, stdio: "inherit", windowsHide: true };
 
-exports.publish = function (artifactsPath, awsProxy) {
+exports.publish = function (artifactsPath, s3Bucket, awsProxy) {
   if (awsProxy) {
-    fs.appendFileSync('/etc/hosts', `149.97.161.139 kungfu-prebuilt.s3.cn-northwest-1.amazonaws.com.cn\n`);
+    fs.appendFileSync('/etc/hosts', `${awsProxy.replace(' ', '\t')}\n`);
+    console.log('$ cat /etc/hosts');
     spawnSync("cat", ["/etc/hosts"], spawnOpts);
-    console.log('---');
-    spawnSync("traceroute", ["kungfu-prebuilt.s3.cn-northwest-1.amazonaws.com.cn"], spawnOpts);
-    console.log('---');
   }
   glob.sync(path.join(artifactsPath, "*")).map(artifactPath => {
     glob.sync(path.join(artifactPath, "*", "build", "stage", "*")).forEach(prebuiltPath => {
       const name = path.basename(prebuiltPath);
       const aws_args = [
-        "s3", "sync", prebuiltPath, `s3://kungfu-prebuilt/${name}`,
+        "s3", "sync", prebuiltPath, `s3://${s3Bucket}/${name}`,
         "--acl", "public-read", "--only-show-errors"
       ];
       console.log(`$ aws ${aws_args.join(' ')}`);
       spawnSync("aws", aws_args, spawnOpts);
     });
   });
-  console.log('$ aws s3 ls');
-  spawnSync("aws", ["s3", "ls", "--recursive", "kungfu-prebuilt"], spawnOpts);
+  console.log('$ aws s3 ls kungfu-prebuilt');
+  spawnSync("aws", ["s3", "ls", "--recursive", "--human-readable", s3Bucket], spawnOpts);
+  spawnSync("aws", ["s3", "rm", "--recursive", `s3://${s3Bucket}/core`], spawnOpts);
 };
 
 /***/ }),

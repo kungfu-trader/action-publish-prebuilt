@@ -1,10 +1,14 @@
-name: "Publish Artifacts to AWS"
+name: "Publish Prebuilt"
 author: "Keren Dong"
-description: "Publish GitHub artifacts to AWS S3"
+description: "Publish Prebuilt to AWS S3"
 inputs:
   artifacts-path:
     description: "Where to find the artifacts"
     required: true
+  s3-bucket:
+    description: "S3 Bucket"
+    default: "kungfu-prebuilt"
+    required: false
   aws-proxy:
     description: "AWS proxy in /etc/hosts"
     required: false
