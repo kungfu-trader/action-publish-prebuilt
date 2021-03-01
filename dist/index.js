@@ -32,10 +32,9 @@ const spawnOpts = { shell: true, stdio: "inherit", windowsHide: true };
 exports.publish = function (artifactsPath) {
   glob.sync(path.join(artifactsPath, "*")).map(artifactPath => {
     console.log(`artifact: ${artifactPath}`);
-    fs.readdirSync(artifactPath).forEach(file => {
-      const artifactFile = path.resolve(path.join(artifactPath, file));
-      const stat = fs.lstatSync(artifactFile);
-      console.log(`\t${artifactFile} size=${stat.size}`);
+    glob.sync(path.join(artifactPath, "**")).forEach(artifactEntry => {
+      const stat = fs.lstatSync(artifactEntry);
+      console.log(`\t${artifactEntry} size=${stat.size}`);
     });
   });
   console.log('---');
