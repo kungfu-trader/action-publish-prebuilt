@@ -31,10 +31,10 @@ const spawnOpts = { shell: true, stdio: "inherit", windowsHide: true };
 
 exports.publish = function (artifactsPath) {
   console.log(`cwd: ${process.cwd()}`);
-  glob.sync(path.join(artifactsPath, "*")).map(p => {
-    console.log(`artifact: ${p}`);
-    fs.readdirSync(p).forEach(file => {
-      const stat = fs.lstatSync(file);
+  glob.sync(path.join(artifactsPath, "*")).map(artifactPath => {
+    console.log(`artifact: ${artifactPath}`);
+    fs.readdirSync(artifactPath).forEach(file => {
+      const stat = fs.lstatSync(path.join(artifactPath, file));
       console.log(`\t${file} size=${stat.size}`);
     });
   });
