@@ -40,10 +40,10 @@ exports.publish = function (artifactsPath) {
   console.log('---');
   fs.appendFileSync('/etc/hosts', '127.0.0.1 local-test-kungfu\n');
   spawnSync("cat", ["/etc/hosts"], spawnOpts);
-  spawnSync("traceroute", ["kungfu.s3.cn-northwest-1.amazonaws.com.cn"], spawnOpts);
+  spawnSync("traceroute", ["kungfu-prebuilt.s3.cn-northwest-1.amazonaws.com.cn"], spawnOpts);
   console.log('---');
   console.log('aws s3 ls');
-  spawnSync("aws", ["s3", "ls", "kungfu/core/v2/2.3.0/"], spawnOpts);
+  spawnSync("aws", ["s3", "ls", "kungfu-prebuilt/core/v2/v2.3.0/"], spawnOpts);
 };
 
 /***/ }),
