@@ -1,16 +1,46 @@
 const fs = require("fs");
 const path = require("path");
 const glob = require("glob");
-const { spawnSync } = require("child_process");
+const readline = require('readline');
+const { spawn, spawnSync } = require("child_process");
 
-const spawnOpts = { shell: true, stdio: "inherit", windowsHide: true };
+const spawnOptsInherit = { shell: true, stdio: "inherit", windowsHide: true };
+const spawnOptsPipe = { shell: true, stdio: "pipe", windowsHide: true };
 
 exports.publish = function (artifactsPath, s3Bucket, awsProxy) {
+  const hostsFile = "/etc/hosts";
   if (awsProxy) {
-    fs.appendFileSync('/etc/hosts', `${awsProxy.replace(' ', '\t')}\n`);
-    console.log('$ cat /etc/hosts');
-    spawnSync("cat", ["/etc/hosts"], spawnOpts);
+    const markBegin = "# AWS PROXY BEGIN #";
+    const markEnd = "# AWS PROXY END #";
+    const hostProxy = awsProxy.replace(' ', '\t');
+    const result = spawnSync("cat", ["/etc/hosts"], spawnOptsPipe);
+    const hosts = result.output.filter(e => e && e.length > 0).pop().toString().split('\n');
+    if (hosts.includes(markBegin) && hosts.includes(markEnd)) {
+      const beginIndex = hosts.indexOf(markBegin);
+      const endIndex = hosts.indexOf(markEnd);
+      hosts.splice(beginIndex, endIndex - beginIndex + 1);
+      fs.writeFileSync(hostsFile, hosts.join('\n'));
+    }
+    fs.appendFileSync(hostsFile, `${markBegin}\n${hostProxy}\n${markEnd}\n`);
   }
+  console.log(`$ cat ${hostsFile}`);
+  spawnSync("cat", [hostsFile], spawnOptsInherit);
+
+  console.log(`$ cat /etc/resolv.conf`);
+  spawnSync("cat", ['/etc/resolv.conf'], spawnOptsInherit);
+
+  const s3DomainName = `${s3Bucket}.s3.cn-northwest-1.amazonaws.com.cn`;
+  const tcpdump = spawn("tcpdump", ["-w", "/tmp/test.pcap", `host ${s3DomainName}`], spawnOptsPipe);
+  tcpdump.on("close", (code, signal) => {
+    spawnSync("tcpdump", ["-n", "-r", "/tmp/test.pcap", "-c", "20"], spawnOptsInherit);
+  });
+
+  console.log(`$ ping ${s3Bucket}.s3.cn-northwest-1.amazonaws.com.cn`);
+  spawnSync("ping", ["-c", "4", "-W", "1", s3DomainName], spawnOptsInherit);
+
+  // console.log(`$ aws s3 rm --recursive s3://${s3Bucket}/core`);
+  // spawnSync("aws", ["s3", "rm", "--recursive", `s3://${s3Bucket}/core`], spawnOptsInherit);
+
   glob.sync(path.join(artifactsPath, "*")).map(artifactPath => {
     glob.sync(path.join(artifactPath, "*", "build", "stage", "*")).forEach(prebuiltPath => {
       const name = path.basename(prebuiltPath);
@@ -19,10 +49,11 @@ exports.publish = function (artifactsPath, s3Bucket, awsProxy) {
         "--acl", "public-read", "--only-show-errors"
       ];
       console.log(`$ aws ${aws_args.join(' ')}`);
-      spawnSync("aws", aws_args, spawnOpts);
+      spawnSync("aws", aws_args, spawnOptsInherit);
     });
   });
-  console.log('$ aws s3 ls kungfu-prebuilt');
-  spawnSync("aws", ["s3", "ls", "--recursive", "--human-readable", s3Bucket], spawnOpts);
-  spawnSync("aws", ["s3", "rm", "--recursive", `s3://${s3Bucket}/core`], spawnOpts);
+  console.log(`$ aws s3 ls --recursive ${s3Bucket}`);
+  spawnSync("aws", ["s3", "ls", "--recursive", "--human-readable", s3Bucket], spawnOptsInherit);
+  
+  tcpdump.kill("SIGINT");
 };
