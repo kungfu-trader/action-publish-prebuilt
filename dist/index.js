@@ -52,20 +52,14 @@ exports.publish = function (artifactsPath, s3Bucket, awsProxy) {
   console.log(`$ cat ${hostsFile}`);
   spawnSync("cat", [hostsFile], spawnOptsInherit);
 
-  console.log(`$ cat /etc/resolv.conf`);
-  spawnSync("cat", ['/etc/resolv.conf'], spawnOptsInherit);
-
   const s3DomainName = `${s3Bucket}.s3.cn-northwest-1.amazonaws.com.cn`;
-  const tcpdump = spawn("tcpdump", ["-w", "/tmp/test.pcap", `host ${s3DomainName}`], spawnOptsPipe);
+  const tcpdump = spawn("tcpdump", ["-w", "/tmp/test.pcap", `host ${s3DomainName} or port 53`], spawnOptsPipe);
   tcpdump.on("close", (code, signal) => {
-    spawnSync("tcpdump", ["-n", "-r", "/tmp/test.pcap", "-c", "20"], spawnOptsInherit);
+    spawnSync("tcpdump", ["-n", "-r", "/tmp/test.pcap", "-c", "10"], spawnOptsInherit);
   });
 
-  console.log(`$ ping ${s3Bucket}.s3.cn-northwest-1.amazonaws.com.cn`);
-  spawnSync("ping", ["-c", "4", "-W", "1", s3DomainName], spawnOptsInherit);
-
-  // console.log(`$ aws s3 rm --recursive s3://${s3Bucket}/core`);
-  // spawnSync("aws", ["s3", "rm", "--recursive", `s3://${s3Bucket}/core`], spawnOptsInherit);
+  console.log(`$ aws s3 rm --recursive s3://${s3Bucket}/core`);
+  spawnSync("aws", ["s3", "rm", "--recursive", `s3://${s3Bucket}/core`], spawnOptsInherit);
 
   glob.sync(path.join(artifactsPath, "*")).map(artifactPath => {
     glob.sync(path.join(artifactPath, "*", "build", "stage", "*")).forEach(prebuiltPath => {
