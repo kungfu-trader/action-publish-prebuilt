@@ -2,12 +2,13 @@ const fs = require("fs");
 const path = require("path");
 const glob = require("glob");
 const readline = require('readline');
+const semver = require('semver');
 const { spawn, spawnSync } = require("child_process");
 
 const spawnOptsInherit = { shell: true, stdio: "inherit", windowsHide: true };
 const spawnOptsPipe = { shell: true, stdio: "pipe", windowsHide: true };
 
-exports.publish = function (artifactsPath, s3Bucket, awsProxy) {
+exports.publish = function (artifactsPath, awsProxy, bucketPrebuilt, bucketApp) {
   const hostsFile = "/etc/hosts";
   if (awsProxy) {
     const markBegin = "# AWS PROXY BEGIN #";
@@ -23,31 +24,30 @@ exports.publish = function (artifactsPath, s3Bucket, awsProxy) {
     }
     fs.appendFileSync(hostsFile, `${markBegin}\n${hostProxy}\n${markEnd}\n`);
   }
-  console.log(`$ cat ${hostsFile}`);
-  spawnSync("cat", [hostsFile], spawnOptsInherit);
 
-  const s3DomainName = `${s3Bucket}.s3.cn-northwest-1.amazonaws.com.cn`;
-  const tcpdump = spawn("tcpdump", ["-w", "/tmp/test.pcap", `host ${s3DomainName} or port 53`], spawnOptsPipe);
-  tcpdump.on("close", (code, signal) => {
-    spawnSync("tcpdump", ["-n", "-r", "/tmp/test.pcap", "-c", "10"], spawnOptsInherit);
+  glob.sync(path.join(artifactsPath, "**", "build", "stage", "*")).forEach(prebuiltPath => {
+    const name = path.basename(prebuiltPath);
+    const aws_args = [
+      "s3", "sync", prebuiltPath, `s3://${bucketPrebuilt}/${name}`,
+      "--acl", "public-read", "--only-show-errors"
+    ];
+    console.log(`$ aws ${aws_args.join(' ')}`);
+    spawnSync("aws", aws_args, spawnOptsInherit);
   });
 
-  console.log(`$ aws s3 rm --recursive s3://${s3Bucket}/core`);
-  spawnSync("aws", ["s3", "rm", "--recursive", `s3://${s3Bucket}/core`], spawnOptsInherit);
+  spawnSync("ls", ["-R", artifactsPath], spawnOptsInherit);
 
-  glob.sync(path.join(artifactsPath, "*")).map(artifactPath => {
-    glob.sync(path.join(artifactPath, "*", "build", "stage", "*")).forEach(prebuiltPath => {
-      const name = path.basename(prebuiltPath);
+  glob.sync(path.join(artifactsPath, "**", "build", "app", "*")).forEach(appPath => {
+    const name = path.basename(appPath);
+    const version = semver.parse(name.slice(name.indexOf('-') + 1));
+    if (version) {
+      const versionPath = `v${version.major}/v${version.major}.${version.minor}.${version.patch}`;
       const aws_args = [
-        "s3", "sync", prebuiltPath, `s3://${s3Bucket}/${name}`,
+        "s3", "sync", appPath, `s3://${bucketApp}/${versionPath}/${name}`,
         "--acl", "public-read", "--only-show-errors"
       ];
       console.log(`$ aws ${aws_args.join(' ')}`);
       spawnSync("aws", aws_args, spawnOptsInherit);
-    });
+    }
   });
-  console.log(`$ aws s3 ls --recursive ${s3Bucket}`);
-  spawnSync("aws", ["s3", "ls", "--recursive", "--human-readable", s3Bucket], spawnOptsInherit);
-  
-  tcpdump.kill("SIGINT");
 };
