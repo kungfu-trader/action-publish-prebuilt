@@ -28,7 +28,7 @@ try {
 const fs = __nccwpck_require__(5747);
 const path = __nccwpck_require__(5622);
 const glob = __nccwpck_require__(1957);
-const readline = __nccwpck_require__(1058);
+const md5File = __nccwpck_require__(1446);
 const semver = __nccwpck_require__(1383);
 const { spawn, spawnSync } = __nccwpck_require__(3129);
 
@@ -52,6 +52,15 @@ exports.publish = function (artifactsPath, awsProxy, bucketPrebuilt, bucketApp) 
     fs.appendFileSync(hostsFile, `${markBegin}\n${hostProxy}\n${markEnd}\n`);
   }
 
+  glob.sync(path.join(artifactsPath, "**")).forEach(filePath => {
+    const suffix = ".md5-checksum";
+    const stat = fs.lstatSync(filePath);
+    if (stat.isFile() && !filePath.endsWith(suffix)) {
+      const hash = md5File.sync(filePath);
+      fs.writeFileSync(filePath + suffix, `${hash}\n`);
+    }
+  });
+
   glob.sync(path.join(artifactsPath, "**", "build", "stage", "*")).forEach(prebuiltPath => {
     const name = path.basename(prebuiltPath);
     const aws_args = [
@@ -62,19 +71,25 @@ exports.publish = function (artifactsPath, awsProxy, bucketPrebuilt, bucketApp) 
     spawnSync("aws", aws_args, spawnOptsInherit);
   });
 
-  spawnSync("ls", ["-R", artifactsPath], spawnOptsInherit);
-
   glob.sync(path.join(artifactsPath, "**", "build", "app", "*")).forEach(appPath => {
-    const name = path.basename(appPath);
-    const version = semver.parse(name.slice(name.indexOf('-') + 1));
+    const stat = fs.lstatSync(appPath);
+    if (!stat.isFile()) {
+      return;
+    }
+    const fileName = path.basename(appPath);
+    const dashIndex = fileName.indexOf('-');
+    const productName = fileName.slice(0, dashIndex);
+    const versionInfo = fileName.slice(dashIndex + 1);
+    const version = semver.coerce(versionInfo.slice(0, versionInfo.indexOf('-')));
     if (version) {
-      const versionPath = `v${version.major}/v${version.major}.${version.minor}.${version.patch}`;
       const aws_args = [
-        "s3", "sync", appPath, `s3://${bucketApp}/${versionPath}/${name}`,
+        "s3", "cp", appPath, `s3://${bucketApp}/${productName}/v${version.major}/v${version}/${fileName}`,
         "--acl", "public-read", "--only-show-errors"
       ];
       console.log(`$ aws ${aws_args.join(' ')}`);
       spawnSync("aws", aws_args, spawnOptsInherit);
+    } else {
+      console.error(`> ${appPath} does not has valid version`);
     }
   });
 };
@@ -6490,6 +6505,56 @@ module.exports = LRUCache
 
 /***/ }),
 
+/***/ 1446:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+const crypto = __nccwpck_require__(6417)
+const fs = __nccwpck_require__(5747)
+
+const BUFFER_SIZE = 8192
+
+function md5FileSync (path) {
+  const fd = fs.openSync(path, 'r')
+  const hash = crypto.createHash('md5')
+  const buffer = Buffer.alloc(BUFFER_SIZE)
+
+  try {
+    let bytesRead
+
+    do {
+      bytesRead = fs.readSync(fd, buffer, 0, BUFFER_SIZE)
+      hash.update(buffer.slice(0, bytesRead))
+    } while (bytesRead === BUFFER_SIZE)
+  } finally {
+    fs.closeSync(fd)
+  }
+
+  return hash.digest('hex')
+}
+
+function md5File (path) {
+  return new Promise((resolve, reject) => {
+    const output = crypto.createHash('md5')
+    const input = fs.createReadStream(path)
+
+    input.on('error', (err) => {
+      reject(err)
+    })
+
+    output.once('readable', () => {
+      resolve(output.read().toString('hex'))
+    })
+
+    input.pipe(output)
+  })
+}
+
+module.exports = md5File
+module.exports.sync = md5FileSync
+
+
+/***/ }),
+
 /***/ 3973:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -10464,7 +10529,7 @@ module.exports = prerelease
 
 /***/ }),
 
-/***/ 6417:
+/***/ 7499:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const compare = __nccwpck_require__(4309)
@@ -10547,7 +10612,7 @@ module.exports = {
   patch: __nccwpck_require__(2866),
   prerelease: __nccwpck_require__(6014),
   compare: __nccwpck_require__(4309),
-  rcompare: __nccwpck_require__(6417),
+  rcompare: __nccwpck_require__(7499),
   compareLoose: __nccwpck_require__(2804),
   compareBuild: __nccwpck_require__(2156),
   sort: __nccwpck_require__(1426),
@@ -12182,6 +12247,14 @@ module.exports = require("child_process");;
 
 /***/ }),
 
+/***/ 6417:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("crypto");;
+
+/***/ }),
+
 /***/ 8614:
 /***/ ((module) => {
 
@@ -12235,14 +12308,6 @@ module.exports = require("os");;
 
 "use strict";
 module.exports = require("path");;
-
-/***/ }),
-
-/***/ 1058:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("readline");;
 
 /***/ }),
 

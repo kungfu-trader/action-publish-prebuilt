@@ -12,6 +12,7 @@
     "@actions/core": "^1.2.6",
     "@actions/github": "^4.0.0",
     "glob": "^7.1.6",
+    "md5-file": "^5.0.0",
     "semver": "^7.3.4",
     "yargs": "^16.2.0"
   },

@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const glob = require("glob");
-const readline = require('readline');
+const md5File = require('md5-file');
 const semver = require('semver');
 const { spawn, spawnSync } = require("child_process");
 
@@ -25,6 +25,15 @@ exports.publish = function (artifactsPath, awsProxy, bucketPrebuilt, bucketApp) 
     fs.appendFileSync(hostsFile, `${markBegin}\n${hostProxy}\n${markEnd}\n`);
   }
 
+  glob.sync(path.join(artifactsPath, "**")).forEach(filePath => {
+    const suffix = ".md5-checksum";
+    const stat = fs.lstatSync(filePath);
+    if (stat.isFile() && !filePath.endsWith(suffix)) {
+      const hash = md5File.sync(filePath);
+      fs.writeFileSync(filePath + suffix, `${hash}\n`);
+    }
+  });
+
   glob.sync(path.join(artifactsPath, "**", "build", "stage", "*")).forEach(prebuiltPath => {
     const name = path.basename(prebuiltPath);
     const aws_args = [
@@ -35,19 +44,25 @@ exports.publish = function (artifactsPath, awsProxy, bucketPrebuilt, bucketApp) 
     spawnSync("aws", aws_args, spawnOptsInherit);
   });
 
-  spawnSync("ls", ["-R", artifactsPath], spawnOptsInherit);
-
   glob.sync(path.join(artifactsPath, "**", "build", "app", "*")).forEach(appPath => {
-    const name = path.basename(appPath);
-    const version = semver.parse(name.slice(name.indexOf('-') + 1));
+    const stat = fs.lstatSync(appPath);
+    if (!stat.isFile()) {
+      return;
+    }
+    const fileName = path.basename(appPath);
+    const dashIndex = fileName.indexOf('-');
+    const productName = fileName.slice(0, dashIndex);
+    const versionInfo = fileName.slice(dashIndex + 1);
+    const version = semver.coerce(versionInfo.slice(0, versionInfo.indexOf('-')));
     if (version) {
-      const versionPath = `v${version.major}/v${version.major}.${version.minor}.${version.patch}`;
       const aws_args = [
-        "s3", "sync", appPath, `s3://${bucketApp}/${versionPath}/${name}`,
+        "s3", "cp", appPath, `s3://${bucketApp}/${productName}/v${version.major}/v${version}/${fileName}`,
         "--acl", "public-read", "--only-show-errors"
       ];
       console.log(`$ aws ${aws_args.join(' ')}`);
       spawnSync("aws", aws_args, spawnOptsInherit);
+    } else {
+      console.error(`> ${appPath} does not has valid version`);
     }
   });
 };
