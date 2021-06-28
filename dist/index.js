@@ -7,7 +7,7 @@ module.exports =
 
 const core = __nccwpck_require__(2186);
 const github = __nccwpck_require__(5438);
-const { publish } = __nccwpck_require__(2909);
+const lib = __nccwpck_require__(2909);
 
 try {
     const context = github.context;
@@ -15,7 +15,7 @@ try {
     const awsProxy = core.getInput('aws-proxy');
     const bucketPrebuilt = core.getInput('bucket-prebuilt');
     const bucketApp = core.getInput('bucket-app');
-    publish(artifactsPath, awsProxy, bucketPrebuilt, bucketApp);
+    lib.publish(artifactsPath, awsProxy, bucketPrebuilt, bucketApp);
 } catch (error) {
     core.setFailed(error.message);
 }
