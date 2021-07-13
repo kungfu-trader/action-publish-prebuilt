@@ -105,10 +105,8 @@ exports.stage = function (repo, artifactsPath, bucketStaging) {
   });
   glob.sync(path.join(artifactsPath, "**", "build", "stage", "*")).forEach(productPath => {
     const productName = path.basename(productPath);
-    awsCall([
-      "s3", "sync", productPath, `s3://${bucketStaging}/${stagingArea(repo)}/${productName}`,
-      "--acl", "public-read", "--only-show-errors"
-    ]);
+    const s3Path = `s3://${bucketStaging}/${stagingArea(repo)}/${productName}`;
+    awsCall(["s3", "sync", productPath, s3Path, "--only-show-errors"]);
   });
 };
 
