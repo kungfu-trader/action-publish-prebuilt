@@ -65,9 +65,9 @@ exports.stage = function (repo, artifactsPath, bucketStaging) {
   });
 };
 
-exports.publish = function (repo, bucketStaging, bucketProduction) {
+exports.publish = function (repo, bucketStaging, bucketRelease) {
   awsCall([
-    "s3", "sync", `s3://${bucketStaging}/${stagingArea(repo)}`, `s3://${bucketProduction}`,
+    "s3", "sync", `s3://${bucketStaging}/${stagingArea(repo)}`, `s3://${bucketRelease}`,
     "--acl", "public-read", "--only-show-errors"
   ]);
 };

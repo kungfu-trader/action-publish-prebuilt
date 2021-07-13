@@ -22,16 +22,82 @@
 
 - aws-proxy 如需使用针对海内外的专有网络加速服务，可通过此参数设置相关服务，需符合 hosts 文件格式。相关设置会写入到 /etc/hosts。使用此参数时需要同时使用具备对 /etc/hosts 文件有写入权限的 docker 镜像。
 
-- artifacts-path 在编译相关的 GitHub Action 中上传的文件所对应的路径，必填参数
+- artifacts-path 在编译相关的 GitHub Action 中上传的文件所对应的路径，填写后将触发从该路径到 bucket-staging 的上传
 
-- bucket-prebuilt-staging
+- bucket-staging 用于待发布状态的 S3 bucket，当提供 artifacts-path 参数时其为上传目的地，当提供 bucket-release 参数时其为上传源。在每次发布流程中，会在这个 bucket 中创建一个 ${repo}/v${version} 的目录用于存储指定 repo 的对应版本的预编译文件，流程开启前和结束后都会清空该路径。
 
-- bucket-prebuilt
-
-- bucket-app-staging
-
-- bucket-app
+- bucket-release 用于发布预编译文件的 S3 bucket，填写后将触发从 bucket-staging 到 bucket-release 的同步（s3 sync）操作
 
 ### 输出参数 - Outputs
 
 无
+
+## 示例 - Examples
+
+### 准备待发布 - Prepare for Publish
+
+```yaml
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - alpha/*/*
+      - release/*/*
+      - main
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: yarn build
+
+      - name: Configure AWS Crendentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Publish Prebuilt to AWS
+        uses: kungfu-trader/action-publish-prebuilt@v2
+        with:
+          artifacts-path: 'github-artifacts'
+          bucket-staging: 'user-bucket-staging'
+```
+
+### 发布 - Publish
+
+```yaml
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - alpha/*/*
+      - release/*/*
+      - main
+
+jobs:
+  publish:
+    if: ${{ github.event.pull_request.merged }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Configure AWS Crendentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Publish Prebuilt to AWS
+        uses: kungfu-trader/action-publish-prebuilt@v2
+        with:
+          bucket-staging: 'user-bucket-staging'
+          bucket-release: 'user-bucket-release'
+```

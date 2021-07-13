@@ -13,7 +13,7 @@ const main = function () {
     const awsProxy = core.getInput("aws-proxy");
     const artifactsPath = core.getInput("artifacts-path");
     const bucketStaging = core.getInput("bucket-staging");
-    const bucketProduction = core.getInput("bucket-production");
+    const bucketRelease = core.getInput("bucket-release");
     const repo = github.context.repo.repo;
 
     if (awsProxy) {
@@ -25,8 +25,8 @@ const main = function () {
         lib.stage(repo, artifactsPath, bucketStaging);
     }
 
-    if (bucketStaging && bucketProduction) {
-        lib.publish(repo, bucketStaging, bucketProduction);
+    if (bucketStaging && bucketRelease) {
+        lib.publish(repo, bucketStaging, bucketRelease);
         lib.clean(repo, bucketStaging);
     }
 };
@@ -112,9 +112,9 @@ exports.stage = function (repo, artifactsPath, bucketStaging) {
   });
 };
 
-exports.publish = function (repo, bucketStaging, bucketProduction) {
+exports.publish = function (repo, bucketStaging, bucketRelease) {
   awsCall([
-    "s3", "sync", `s3://${bucketStaging}/${stagingArea(repo)}`, `s3://${bucketProduction}`,
+    "s3", "sync", `s3://${bucketStaging}/${stagingArea(repo)}`, `s3://${bucketRelease}`,
     "--acl", "public-read", "--only-show-errors"
   ]);
 };

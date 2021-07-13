@@ -8,8 +8,8 @@ inputs:
     description: "Where to find the artifacts"
   bucket-staging:
     description: "S3 Bucket used as staging area of prebuilt binaries"
-  bucket-production:
-    description: "S3 Bucket used as production area of prebuilt binaries"
+  bucket-release:
+    description: "S3 Bucket used as release area of prebuilt binaries"
 runs:
   using: "node12"
   main: "dist/index.js"

@@ -6,7 +6,7 @@ const main = function () {
     const awsProxy = core.getInput("aws-proxy");
     const artifactsPath = core.getInput("artifacts-path");
     const bucketStaging = core.getInput("bucket-staging");
-    const bucketProduction = core.getInput("bucket-production");
+    const bucketRelease = core.getInput("bucket-release");
     const repo = github.context.repo.repo;
 
     if (awsProxy) {
@@ -18,8 +18,8 @@ const main = function () {
         lib.stage(repo, artifactsPath, bucketStaging);
     }
 
-    if (bucketStaging && bucketProduction) {
-        lib.publish(repo, bucketStaging, bucketProduction);
+    if (bucketStaging && bucketRelease) {
+        lib.publish(repo, bucketStaging, bucketRelease);
         lib.clean(repo, bucketStaging);
     }
 };
