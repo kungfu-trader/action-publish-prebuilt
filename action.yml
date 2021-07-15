@@ -2,6 +2,8 @@ name: "Publish Prebuilt"
 author: "Keren Dong"
 description: "Publish Prebuilt to AWS S3"
 inputs:
+  token:
+    description: "GitHub token"
   aws-proxy:
     description: "AWS proxy in /etc/hosts"
   artifacts-path:
@@ -10,6 +12,9 @@ inputs:
     description: "S3 Bucket used as staging area of prebuilt binaries"
   bucket-release:
     description: "S3 Bucket used as release area of prebuilt binaries"
+  no-comment:
+    description: "Choices [true/false]"
+    default: "false"
 runs:
   using: "node12"
   main: "dist/index.js"

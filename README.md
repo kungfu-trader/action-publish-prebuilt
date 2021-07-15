@@ -20,13 +20,23 @@
 
 ### 输入参数 - Inputs
 
+- token 用于给对应 Pull Request 添加评论信息，建议使用 secrets.GITHUB_TOKEN
+
 - aws-proxy 如需使用针对海内外的专有网络加速服务，可通过此参数设置相关服务，需符合 hosts 文件格式。相关设置会写入到 /etc/hosts。使用此参数时需要同时使用具备对 /etc/hosts 文件有写入权限的 docker 镜像。
 
-- artifacts-path 在编译相关的 GitHub Action 中上传的文件所对应的路径，填写后将触发从该路径到 bucket-staging 的上传
+- artifacts-path 在编译相关的 GitHub Action 中上传的文件所对应的路径，填写后将触发从该路径到 bucket-staging 的上传。上传文件的路径规则为
 
-- bucket-staging 用于待发布状态的 S3 bucket，当提供 artifacts-path 参数时其为上传目的地，当提供 bucket-release 参数时其为上传源。在每次发布流程中，会在这个 bucket 中创建一个 ${repo}/v${version} 的目录用于存储指定 repo 的对应版本的预编译文件，流程开启前和结束后都会清空该路径。
+```javascript
+"**/build/stage/${product-name}/v${version.major}/v${version}/*.*";
+```
 
-- bucket-release 用于发布预编译文件的 S3 bucket，填写后将触发从 bucket-staging 到 bucket-release 的同步（s3 sync）操作
+其中 ${product-name} 对应相关产品名称例如 kungfu-core，${version.major} 对应主版本号，${version} 对应具体的版本号。路径信息 ${product-name}/v${version.major}/v${version} 最终会作为文件在 bucket-release 的绝对路径。若上传中文件路径不包含 build/stage 部分则不会触发上传操作。
+
+- bucket-staging 用于待发布状态的 S3 bucket，当提供 artifacts-path 参数时其为上传目的地，当提供 bucket-release 参数时其为上传源。在每次发布流程中，会在这个 bucket 中创建一个 ${repo}/v${version} 的目录用于存储指定 repo 的对应版本的预编译文件，流程开启前和结束后都会清空该路径。上传成功后若未将 no-comment 参数设置为 "true" 则会添加一个评论（Comment）提供所有文件的下载 URL（需将相应 Bucket 运行其中的 Object 可以接受 Public Access）。
+
+- bucket-release 用于发布预编译文件的 S3 bucket，填写后将触发从 bucket-staging 到 bucket-release 的同步（s3 sync）操作。
+
+- no-comment 若设置为 "true" 则不会添加评论信息，默认为 "false"。
 
 ### 输出参数 - Outputs
 
@@ -65,8 +75,8 @@ jobs:
       - name: Publish Prebuilt to AWS
         uses: kungfu-trader/action-publish-prebuilt@v2
         with:
-          artifacts-path: 'github-artifacts'
-          bucket-staging: 'user-bucket-staging'
+          artifacts-path: "github-artifacts"
+          bucket-staging: "user-bucket-staging"
 ```
 
 ### 发布 - Publish
@@ -98,6 +108,6 @@ jobs:
       - name: Publish Prebuilt to AWS
         uses: kungfu-trader/action-publish-prebuilt@v2
         with:
-          bucket-staging: 'user-bucket-staging'
-          bucket-release: 'user-bucket-release'
+          bucket-staging: "user-bucket-staging"
+          bucket-release: "user-bucket-release"
 ```

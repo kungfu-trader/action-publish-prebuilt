@@ -10,24 +10,36 @@ const core = __nccwpck_require__(2186);
 const github = __nccwpck_require__(5438);
 
 const main = function () {
+    const context = github.context;
+    const token = core.getInput("token");
     const awsProxy = core.getInput("aws-proxy");
     const artifactsPath = core.getInput("artifacts-path");
     const bucketStaging = core.getInput("bucket-staging");
     const bucketRelease = core.getInput("bucket-release");
-    const repo = github.context.repo.repo;
+    const withComment = !!core.getInput("no-comment");
+    const repo = github.context.repo;
+    const pullRequestNumber = context.issue.number ? context.issue.number : context.payload.pull_request.number;
 
     if (awsProxy) {
         lib.setupProxy(awsProxy);
     }
 
     if (artifactsPath && bucketStaging) {
-        lib.clean(repo, bucketStaging);
-        lib.stage(repo, artifactsPath, bucketStaging);
+        lib.clean(repo.repo, bucketStaging);
+        lib.stage(repo.repo, artifactsPath, bucketStaging);
+        if (withComment) {
+            lib.addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber, bucketStaging)
+                .catch(console.error);
+        }
     }
 
     if (bucketStaging && bucketRelease) {
-        lib.publish(repo, bucketStaging, bucketRelease);
-        lib.clean(repo, bucketStaging);
+        lib.publish(repo.repo, bucketStaging, bucketRelease);
+        lib.clean(repo.repo, bucketStaging);
+        if (withComment) {
+            lib.deletePreviewComment(token, repo.owner, repo.repo, pullRequestNumber, bucketStaging)
+                .catch(console.error);
+        }
     }
 };
 
@@ -45,6 +57,7 @@ if (process.env.GITHUB_ACTION) {
 /***/ 2909:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
+const github = __nccwpck_require__(5438);
 const fs = __nccwpck_require__(5747);
 const path = __nccwpck_require__(5622);
 const glob = __nccwpck_require__(1957);
@@ -55,6 +68,8 @@ const { spawnSync } = __nccwpck_require__(3129);
 
 const spawnOptsInherit = { shell: true, stdio: "inherit", windowsHide: true };
 const spawnOptsPipe = { shell: true, stdio: "pipe", windowsHide: true };
+
+const previewCommentTitle = "<b>Preview Download Links</b>";
 
 function currentVersion() {
   const configPath = fs.existsSync("lerna.json") ? "lerna.json" : "package.json";
@@ -72,6 +87,12 @@ function awsCall(args, opts = spawnOptsInherit) {
   if (result.status !== 0) {
     throw new Error(`Failed to call aws with status ${result.status}`);
   }
+  return result;
+}
+
+function awsOutput(args) {
+  const result = awsCall(args, spawnOptsPipe);
+  return result.output.filter(e => e && e.length > 0).toString().trimEnd();
 }
 
 exports.setupProxy = function (awsProxy) {
@@ -103,18 +124,70 @@ exports.stage = function (repo, artifactsPath, bucketStaging) {
       fs.writeFileSync(filePath + suffix, `${hash}${os.EOL}`);
     }
   });
-  glob.sync(path.join(artifactsPath, "**", "build", "stage", "*")).forEach(productPath => {
-    const productName = path.basename(productPath);
-    const s3Path = `s3://${bucketStaging}/${stagingArea(repo)}/${productName}`;
-    awsCall(["s3", "sync", productPath, s3Path, "--only-show-errors"]);
+  glob.sync(path.join(artifactsPath, "**", "build", "stage", "*")).forEach(source => {
+    const productName = path.basename(source);
+    const dest = `s3://${bucketStaging}/${stagingArea(repo)}/${productName}`;
+    awsCall(["s3", "sync", source, dest, "--acl", "public-read", "--only-show-errors"]);
   });
 };
 
 exports.publish = function (repo, bucketStaging, bucketRelease) {
-  awsCall([
-    "s3", "sync", `s3://${bucketStaging}/${stagingArea(repo)}`, `s3://${bucketRelease}`,
-    "--acl", "public-read", "--only-show-errors"
+  const source = `s3://${bucketStaging}/${stagingArea(repo)}`;
+  const dest = `s3://${bucketRelease}`;
+  awsCall(["s3", "sync", source, dest, "--acl", "public-read", "--only-show-errors"]);
+};
+
+exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket) {
+  const context = github.context;
+  const octokit = github.getOctokit(token);
+  const pullRequestQuery = await octokit.graphql(`
+    query {
+      repository(name: "${repo}", owner: "${owner}") {
+        pullRequest(number: ${pullRequestNumber}) { id }
+      }
+  }`);
+  const pullRequestId = pullRequestQuery.repository.pullRequest.id;
+  const s3Location = awsOutput([
+    "s3api", "get-bucket-location", "--bucket", bucket, "--output", "text"
   ]);
+  const s3BaseUrl = s3Location.startsWith('cn') ?
+    `https://${bucket}.s3.${s3Location}.amazonaws.com.cn/` : `https://${bucket}.s3.amazonaws.com`;
+  const s3Objects = awsOutput([
+    "s3api", "list-objects-v2", "--bucket", bucket,
+    "--prefix", stagingArea(repo),
+    "--query", "\"Contents[].[Key]\"",
+    "--output", "text"
+  ]);
+  const links = s3Objects.split(os.EOL)
+    .filter(obj => !obj.startsWith('.') && !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
+    .map(obj => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
+    .sort()
+    .join(os.EOL);
+  const body = `${previewCommentTitle}${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
+  await octokit.graphql(`mutation{addComment(input:{subjectId:"${pullRequestId}",body:"${body}"}){subject{id}}}`);
+};
+
+exports.deletePreviewComment = async function (token, owner, repo, pullRequestNumber) {
+  const octokit = github.getOctokit(token);
+  const pullRequestQuery = await octokit.graphql(`
+    query {
+      repository(name: "${repo}", owner: "${owner}") {
+        pullRequest(number: ${pullRequestNumber}) {
+          id
+          comments(last:100) {
+            nodes {
+              id
+              body
+            }
+          }
+        }
+      }
+  }`);
+  for (const comment of pullRequestQuery.repository.pullRequest.comments.nodes) {
+    if (comment.body.startsWith(previewCommentTitle)) {
+      await octokit.graphql(`mutation{deleteIssueComment(input:{id:"${comment.id}"}){clientMutationId}}`);
+    }
+  }
 };
 
 /***/ }),
@@ -10539,7 +10612,7 @@ module.exports = patch
 
 /***/ }),
 
-/***/ 4016:
+/***/ 6014:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const parse = __nccwpck_require__(5925)
@@ -10633,7 +10706,7 @@ module.exports = {
   major: __nccwpck_require__(6688),
   minor: __nccwpck_require__(8447),
   patch: __nccwpck_require__(2866),
-  prerelease: __nccwpck_require__(4016),
+  prerelease: __nccwpck_require__(6014),
   compare: __nccwpck_require__(4309),
   rcompare: __nccwpck_require__(7499),
   compareLoose: __nccwpck_require__(2804),
@@ -11465,7 +11538,7 @@ module.exports = __nccwpck_require__(4219);
 
 
 var net = __nccwpck_require__(1631);
-var tls = __nccwpck_require__(8818);
+var tls = __nccwpck_require__(4016);
 var http = __nccwpck_require__(8605);
 var https = __nccwpck_require__(7211);
 var events = __nccwpck_require__(8614);
@@ -12342,7 +12415,7 @@ module.exports = require("stream");;
 
 /***/ }),
 
-/***/ 8818:
+/***/ 4016:
 /***/ ((module) => {
 
 "use strict";
