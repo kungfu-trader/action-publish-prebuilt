@@ -16,7 +16,7 @@ const main = function () {
     const artifactsPath = core.getInput("artifacts-path");
     const bucketStaging = core.getInput("bucket-staging");
     const bucketRelease = core.getInput("bucket-release");
-    const withComment = !!core.getInput("no-comment");
+    const withComment = core.getInput("no-comment") === "false";
     const repo = github.context.repo;
     const pullRequestNumber = context.issue.number ? context.issue.number : context.payload.pull_request.number;
 
@@ -151,7 +151,7 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
     "s3api", "get-bucket-location", "--bucket", bucket, "--output", "text"
   ]);
   const s3BaseUrl = s3Location.startsWith('cn') ?
-    `https://${bucket}.s3.${s3Location}.amazonaws.com.cn/` : `https://${bucket}.s3.amazonaws.com`;
+    `https://${bucket}.s3.${s3Location}.amazonaws.com.cn/` : `https://${bucket}.s3.amazonaws.com/`;
   const s3Objects = awsOutput([
     "s3api", "list-objects-v2", "--bucket", bucket,
     "--prefix", stagingArea(repo),
@@ -163,7 +163,7 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
     .map(obj => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
     .sort()
     .join(os.EOL);
-  const body = `${previewCommentTitle}${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
+  const body = `${previewCommentTitle} - [${s3Location}]${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
   await octokit.graphql(`mutation{addComment(input:{subjectId:"${pullRequestId}",body:"${body}"}){subject{id}}}`);
 };
 
