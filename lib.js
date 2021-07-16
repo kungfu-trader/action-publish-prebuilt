@@ -126,6 +126,7 @@ exports.deletePreviewComment = async function (token, owner, repo, pullRequestNu
   }`);
   for (const comment of pullRequestQuery.repository.pullRequest.comments.nodes) {
     if (comment.body.startsWith(previewCommentTitle)) {
+      console.log(`> delete comment ${comment.id}`);
       await octokit.graphql(`mutation{deleteIssueComment(input:{id:"${comment.id}"}){clientMutationId}}`);
     }
   }
