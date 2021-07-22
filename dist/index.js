@@ -5,58 +5,68 @@ module.exports =
 /***/ 2932:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
-const lib = exports.lib = __nccwpck_require__(2909);
+/* eslint-disable no-restricted-globals */
+const lib = (exports.lib = __nccwpck_require__(2909));
 const core = __nccwpck_require__(2186);
 const github = __nccwpck_require__(5438);
 
-const main = function () {
-    const context = github.context;
-    const token = core.getInput("token");
-    const awsProxy = core.getInput("aws-proxy");
-    const artifactsPath = core.getInput("artifacts-path");
-    const bucketStaging = core.getInput("bucket-staging");
-    const bucketRelease = core.getInput("bucket-release");
-    const withComment = core.getInput("no-comment") === "false";
-    const repo = github.context.repo;
-    const pullRequestNumber = context.issue.number ? context.issue.number : context.payload.pull_request.number;
+const main = async function () {
+  const context = github.context;
+  const token = core.getInput('token');
+  const awsProxy = core.getInput('aws-proxy');
+  const artifactsPath = core.getInput('artifacts-path');
+  const bucketStaging = core.getInput('bucket-staging');
+  const bucketRelease = core.getInput('bucket-release');
+  const withComment = core.getInput('no-comment') === 'false';
+  const repo = github.context.repo;
+  const pullRequestNumber = context.issue.number ? context.issue.number : context.payload.pull_request.number;
 
-    if (awsProxy) {
-        lib.setupProxy(awsProxy);
-    }
+  if (awsProxy) {
+    lib.setupProxy(awsProxy);
+  }
 
-    if (artifactsPath && bucketStaging) {
-        lib.clean(repo.repo, bucketStaging);
-        lib.stage(repo.repo, artifactsPath, bucketStaging);
-        if (withComment) {
-            lib.addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber, bucketStaging)
-                .catch(console.error);
-        }
+  const addComment = async () => {
+    if (withComment) {
+      await lib.addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber, bucketStaging).catch(console.error);
     }
+  };
 
-    if (bucketStaging && bucketRelease) {
-        lib.publish(repo.repo, bucketStaging, bucketRelease);
-        lib.clean(repo.repo, bucketStaging);
-        if (withComment) {
-            lib.deletePreviewComment(token, repo.owner, repo.repo, pullRequestNumber, bucketStaging)
-                .catch(console.error);
-        }
+  const deleteComment = async () => {
+    if (withComment) {
+      await lib
+        .deletePreviewComment(token, repo.owner, repo.repo, pullRequestNumber, bucketStaging)
+        .catch(console.error);
     }
+  };
+
+  if (artifactsPath && bucketStaging) {
+    await deleteComment();
+    lib.clean(repo.repo, bucketStaging);
+    lib.stage(repo.repo, artifactsPath, bucketStaging);
+    await addComment();
+  }
+
+  if (bucketStaging && bucketRelease) {
+    lib.publish(repo.repo, bucketStaging, bucketRelease);
+    lib.clean(repo.repo, bucketStaging);
+    await deleteComment();
+  }
 };
 
 if (process.env.GITHUB_ACTION) {
-    try {
-        main();
-    } catch (error) {
-        console.error(error);
-        core.setFailed(error.message);
-    }
+  main().catch((error) => {
+    console.error(error);
+    core.setFailed(error.message);
+  });
 }
+
 
 /***/ }),
 
 /***/ 2909:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
+/* eslint-disable no-restricted-globals */
 const github = __nccwpck_require__(5438);
 const fs = __nccwpck_require__(5747);
 const path = __nccwpck_require__(5622);
@@ -66,13 +76,13 @@ const os = __nccwpck_require__(2087);
 const semver = __nccwpck_require__(1383);
 const { spawnSync } = __nccwpck_require__(3129);
 
-const spawnOptsInherit = { shell: true, stdio: "inherit", windowsHide: true };
-const spawnOptsPipe = { shell: true, stdio: "pipe", windowsHide: true };
+const spawnOptsInherit = { shell: true, stdio: 'inherit', windowsHide: true };
+const spawnOptsPipe = { shell: true, stdio: 'pipe', windowsHide: true };
 
-const previewCommentTitle = "<b>Preview Download Links</b>";
+const previewCommentTitle = '<b>Preview Download Links</b>';
 
 function currentVersion() {
-  const configPath = fs.existsSync("lerna.json") ? "lerna.json" : "package.json";
+  const configPath = fs.existsSync('lerna.json') ? 'lerna.json' : 'package.json';
   const config = JSON.parse(fs.readFileSync(configPath));
   return semver.parse(config.version);
 }
@@ -83,7 +93,7 @@ function stagingArea(repo) {
 
 function awsCall(args, opts = spawnOptsInherit) {
   console.log(`$ aws ${args.join(' ')}`);
-  const result = spawnSync("aws", args, opts);
+  const result = spawnSync('aws', args, opts);
   if (result.status !== 0) {
     throw new Error(`Failed to call aws with status ${result.status}`);
   }
@@ -92,16 +102,23 @@ function awsCall(args, opts = spawnOptsInherit) {
 
 function awsOutput(args) {
   const result = awsCall(args, spawnOptsPipe);
-  return result.output.filter(e => e && e.length > 0).toString().trimEnd();
+  return result.output
+    .filter((e) => e && e.length > 0)
+    .toString()
+    .trimEnd();
 }
 
 exports.setupProxy = function (awsProxy) {
-  const hostsFile = "/etc/hosts";
-  const markBegin = "# AWS PROXY BEGIN #";
-  const markEnd = "# AWS PROXY END #";
+  const hostsFile = '/etc/hosts';
+  const markBegin = '# AWS PROXY BEGIN #';
+  const markEnd = '# AWS PROXY END #';
   const hostProxy = awsProxy.replace(' ', '\t');
-  const result = spawnSync("cat", ["/etc/hosts"], spawnOptsPipe);
-  const hosts = result.output.filter(e => e && e.length > 0).pop().toString().split(os.EOL);
+  const result = spawnSync('cat', ['/etc/hosts'], spawnOptsPipe);
+  const hosts = result.output
+    .filter((e) => e && e.length > 0)
+    .pop()
+    .toString()
+    .split(os.EOL);
   if (hosts.includes(markBegin) && hosts.includes(markEnd)) {
     const beginIndex = hosts.indexOf(markBegin);
     const endIndex = hosts.indexOf(markEnd);
@@ -112,29 +129,29 @@ exports.setupProxy = function (awsProxy) {
 };
 
 exports.clean = function (repo, bucketStaging) {
-  awsCall(["s3", "rm", `s3://${bucketStaging}/${stagingArea(repo)}`, "--recursive", "--only-show-errors"]);
+  awsCall(['s3', 'rm', `s3://${bucketStaging}/${stagingArea(repo)}`, '--recursive', '--only-show-errors']);
 };
 
 exports.stage = function (repo, artifactsPath, bucketStaging) {
-  glob.sync(path.join(artifactsPath, "**")).forEach(filePath => {
-    const suffix = ".md5-checksum";
+  glob.sync(path.join(artifactsPath, '**')).forEach((filePath) => {
+    const suffix = '.md5-checksum';
     const stat = fs.lstatSync(filePath);
     if (stat.isFile() && !filePath.endsWith(suffix)) {
       const hash = md5.sync(filePath);
       fs.writeFileSync(filePath + suffix, `${hash}${os.EOL}`);
     }
   });
-  glob.sync(path.join(artifactsPath, "**", "build", "stage", "*")).forEach(source => {
+  glob.sync(path.join(artifactsPath, '**', 'build', 'stage', '*')).forEach((source) => {
     const productName = path.basename(source);
     const dest = `s3://${bucketStaging}/${stagingArea(repo)}/${productName}`;
-    awsCall(["s3", "sync", source, dest, "--acl", "public-read", "--only-show-errors"]);
+    awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors']);
   });
 };
 
 exports.publish = function (repo, bucketStaging, bucketRelease) {
   const source = `s3://${bucketStaging}/${stagingArea(repo)}`;
   const dest = `s3://${bucketRelease}`;
-  awsCall(["s3", "sync", source, dest, "--acl", "public-read", "--only-show-errors"]);
+  awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors']);
 };
 
 exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket) {
@@ -147,20 +164,26 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
       }
   }`);
   const pullRequestId = pullRequestQuery.repository.pullRequest.id;
-  const s3Location = awsOutput([
-    "s3api", "get-bucket-location", "--bucket", bucket, "--output", "text"
-  ]);
-  const s3BaseUrl = s3Location.startsWith('cn') ?
-    `https://${bucket}.s3.${s3Location}.amazonaws.com.cn/` : `https://${bucket}.s3.amazonaws.com/`;
+  const s3Location = awsOutput(['s3api', 'get-bucket-location', '--bucket', bucket, '--output', 'text']);
+  const s3BaseUrl = s3Location.startsWith('cn')
+    ? `https://${bucket}.s3.${s3Location}.amazonaws.com.cn/`
+    : `https://${bucket}.s3.amazonaws.com/`;
   const s3Objects = awsOutput([
-    "s3api", "list-objects-v2", "--bucket", bucket,
-    "--prefix", stagingArea(repo),
-    "--query", "\"Contents[].[Key]\"",
-    "--output", "text"
+    's3api',
+    'list-objects-v2',
+    '--bucket',
+    bucket,
+    '--prefix',
+    stagingArea(repo),
+    '--query',
+    '"Contents[].[Key]"',
+    '--output',
+    'text',
   ]);
-  const links = s3Objects.split(os.EOL)
-    .filter(obj => !obj.startsWith('.') && !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
-    .map(obj => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
+  const links = s3Objects
+    .split(os.EOL)
+    .filter((obj) => !obj.startsWith('.') && !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
+    .map((obj) => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
     .sort()
     .join(os.EOL);
   const body = `${previewCommentTitle} - [${s3Location}]${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
@@ -190,6 +213,7 @@ exports.deletePreviewComment = async function (token, owner, repo, pullRequestNu
     }
   }
 };
+
 
 /***/ }),
 
