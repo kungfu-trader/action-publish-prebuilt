@@ -19,7 +19,8 @@ const main = async function () {
   const bucketRelease = core.getInput('bucket-release');
   const withComment = core.getInput('no-comment') === 'false';
   const repo = github.context.repo;
-  const pullRequestNumber = context.issue.number ? context.issue.number : context.payload.pull_request.number;
+  const pullRequestNumber =
+    context.issue && context.issue.number ? context.issue.number : context.payload.pull_request.number;
 
   if (awsProxy) {
     lib.setupProxy(awsProxy);
