@@ -64,7 +64,7 @@ exports.clean = function (repo, bucketStaging) {
   awsCall(['s3', 'rm', `s3://${bucketStaging}/${stagingArea(repo)}`, '--recursive', '--only-show-errors']);
 };
 
-exports.stage = function (repo, artifactsPath, bucketStaging) {
+exports.digest = function (repo, artifactsPath) {
   glob.sync(path.join(artifactsPath, '**')).forEach((filePath) => {
     const suffix = '.md5-checksum';
     const stat = fs.lstatSync(filePath);
@@ -73,6 +73,9 @@ exports.stage = function (repo, artifactsPath, bucketStaging) {
       fs.writeFileSync(filePath + suffix, `${hash}${os.EOL}`);
     }
   });
+};
+
+exports.stage = function (repo, artifactsPath, bucketStaging) {
   glob.sync(path.join(artifactsPath, '**', 'build', 'stage', '*')).forEach((source) => {
     const productName = path.basename(source);
     const dest = `s3://${bucketStaging}/${stagingArea(repo)}/${productName}`;

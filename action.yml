@@ -12,8 +12,11 @@ inputs:
     description: "S3 Bucket used as staging area of prebuilt binaries"
   bucket-release:
     description: "S3 Bucket used as release area of prebuilt binaries"
+  no-digest:
+    description: "Do not digest files [true/false]"
+    default: "false"
   no-comment:
-    description: "Choices [true/false]"
+    description: "Do not add comment to GitHub [true/false]"
     default: "false"
 runs:
   using: "node12"

@@ -18,6 +18,7 @@ if (argv.awsProxy) {
 
 if (argv.artifactsPath && argv.bucketStaging) {
   lib.clean(argv.repo, argv.bucketStaging);
+  lib.digest(argv.repo, argv.artifactsPath);
   lib.stage(argv.repo, argv.artifactsPath, argv.bucketStaging);
   lib
     .addPreviewComment(argv.token, argv.owner, argv.repo, argv.pullRequestNumber, argv.bucketStaging)
