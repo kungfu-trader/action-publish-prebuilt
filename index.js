@@ -38,7 +38,9 @@ const main = async function () {
   if (artifactsPath && bucketStaging) {
     await deleteComment();
     lib.clean(repo.repo, bucketStaging);
-    lib.digest(repo.repo, artifactsPath);
+    if (withDigest) {
+      lib.digest(repo.repo, artifactsPath);
+    }
     lib.stage(repo.repo, artifactsPath, bucketStaging);
     await addComment();
   }
