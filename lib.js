@@ -89,7 +89,7 @@ exports.publish = function (repo, bucketStaging, bucketRelease) {
   awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors']);
 };
 
-exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket) {
+exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket, maxPreviewLinks = 32) {
   const context = github.context;
   const octokit = github.getOctokit(token);
   const pullRequestQuery = await octokit.graphql(`
@@ -112,6 +112,8 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
     stagingArea(repo),
     '--query',
     '"Contents[].[Key]"',
+    '--max-items',
+    maxPreviewLinks,
     '--output',
     'text',
   ]);
