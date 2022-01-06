@@ -10,6 +10,7 @@ const main = async function () {
   const artifactsPath = core.getInput('artifacts-path');
   const bucketStaging = core.getInput('bucket-staging');
   const bucketRelease = core.getInput('bucket-release');
+  const withDigest = core.getInput('no-digest') === 'false';
   const withComment = core.getInput('no-comment') === 'false';
   const repo = github.context.repo;
   const pullRequestNumber = () => (context.issue.number ? context.issue.number : context.payload.pull_request.number);
@@ -37,6 +38,9 @@ const main = async function () {
   if (artifactsPath && bucketStaging) {
     await deleteComment();
     lib.clean(repo.repo, bucketStaging);
+    if (withDigest) {
+      lib.digest(repo.repo, artifactsPath);
+    }
     lib.stage(repo.repo, artifactsPath, bucketStaging);
     await addComment();
   }
