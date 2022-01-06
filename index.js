@@ -12,6 +12,7 @@ const main = async function () {
   const bucketRelease = core.getInput('bucket-release');
   const withDigest = core.getInput('no-digest') === 'false';
   const withComment = core.getInput('no-comment') === 'false';
+  const maxPreviewLinks = parseInt(core.getInput('max-preview-links'), 10) || 1;
   const repo = github.context.repo;
   const pullRequestNumber = () => (context.issue.number ? context.issue.number : context.payload.pull_request.number);
 
