@@ -17,7 +17,9 @@ const main = async function () {
   const artifactsPath = core.getInput('artifacts-path');
   const bucketStaging = core.getInput('bucket-staging');
   const bucketRelease = core.getInput('bucket-release');
+  const withDigest = core.getInput('no-digest') === 'false';
   const withComment = core.getInput('no-comment') === 'false';
+  const maxPreviewLinks = parseInt(core.getInput('max-preview-links'), 10) || 1;
   const repo = github.context.repo;
   const pullRequestNumber = () => (context.issue.number ? context.issue.number : context.payload.pull_request.number);
 
@@ -28,7 +30,7 @@ const main = async function () {
   const addComment = async () => {
     if (withComment) {
       await lib
-        .addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber(), bucketStaging)
+        .addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber(), bucketStaging, maxPreviewLinks)
         .catch(console.error);
     }
   };
@@ -44,6 +46,9 @@ const main = async function () {
   if (artifactsPath && bucketStaging) {
     await deleteComment();
     lib.clean(repo.repo, bucketStaging);
+    if (withDigest) {
+      lib.digest(repo.repo, artifactsPath);
+    }
     lib.stage(repo.repo, artifactsPath, bucketStaging);
     await addComment();
   }
@@ -134,7 +139,7 @@ exports.clean = function (repo, bucketStaging) {
   awsCall(['s3', 'rm', `s3://${bucketStaging}/${stagingArea(repo)}`, '--recursive', '--only-show-errors']);
 };
 
-exports.stage = function (repo, artifactsPath, bucketStaging) {
+exports.digest = function (repo, artifactsPath) {
   glob.sync(path.join(artifactsPath, '**')).forEach((filePath) => {
     const suffix = '.md5-checksum';
     const stat = fs.lstatSync(filePath);
@@ -143,6 +148,9 @@ exports.stage = function (repo, artifactsPath, bucketStaging) {
       fs.writeFileSync(filePath + suffix, `${hash}${os.EOL}`);
     }
   });
+};
+
+exports.stage = function (repo, artifactsPath, bucketStaging) {
   glob.sync(path.join(artifactsPath, '**', 'build', 'stage', '*')).forEach((source) => {
     const productName = path.basename(source);
     const dest = `s3://${bucketStaging}/${stagingArea(repo)}/${productName}`;
@@ -156,7 +164,7 @@ exports.publish = function (repo, bucketStaging, bucketRelease) {
   awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors']);
 };
 
-exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket) {
+exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket, maxPreviewLinks = 32) {
   const context = github.context;
   const octokit = github.getOctokit(token);
   const pullRequestQuery = await octokit.graphql(`
@@ -184,9 +192,10 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
   ]);
   const links = s3Objects
     .split(os.EOL)
+    .sort()
+    .slice(0, maxPreviewLinks)
     .filter((obj) => !obj.startsWith('.') && !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
     .map((obj) => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
-    .sort()
     .join(os.EOL);
   const body = `${previewCommentTitle} - [${s3Location}]${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
   await octokit.graphql(`mutation{addComment(input:{subjectId:"${pullRequestId}",body:"${body}"}){subject{id}}}`);
