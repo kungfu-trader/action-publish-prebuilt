@@ -112,16 +112,16 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
     stagingArea(repo),
     '--query',
     '"Contents[].[Key]"',
-    '--max-items',
-    maxPreviewLinks,
     '--output',
     'text',
   ]);
+  console.log(`> take ${maxPreviewLinks} links`);
   const links = s3Objects
     .split(os.EOL)
+    .sort()
+    .slice(0, maxPreviewLinks)
     .filter((obj) => !obj.startsWith('.') && !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
     .map((obj) => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
-    .sort()
     .join(os.EOL);
   const body = `${previewCommentTitle} - [${s3Location}]${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
   await octokit.graphql(`mutation{addComment(input:{subjectId:"${pullRequestId}",body:"${body}"}){subject{id}}}`);
