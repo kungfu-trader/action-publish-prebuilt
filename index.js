@@ -23,7 +23,7 @@ const main = async function () {
   const addComment = async () => {
     if (withComment) {
       await lib
-        .addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber(), bucketStaging)
+        .addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber(), bucketStaging, maxPreviewLinks)
         .catch(console.error);
     }
   };
