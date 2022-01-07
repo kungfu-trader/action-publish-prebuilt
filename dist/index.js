@@ -193,8 +193,8 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
   const links = s3Objects
     .split(os.EOL)
     .sort()
-    .slice(0, maxPreviewLinks)
     .filter((obj) => !obj.startsWith('.') && !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
+    .slice(0, maxPreviewLinks)
     .map((obj) => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
     .join(os.EOL);
   const body = `${previewCommentTitle} - [${s3Location}]${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
