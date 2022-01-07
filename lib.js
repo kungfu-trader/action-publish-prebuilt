@@ -89,7 +89,7 @@ exports.publish = function (repo, bucketStaging, bucketRelease) {
   awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors']);
 };
 
-exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket) {
+exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket, maxPreviewLinks = 32) {
   const context = github.context;
   const octokit = github.getOctokit(token);
   const pullRequestQuery = await octokit.graphql(`
@@ -117,9 +117,10 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
   ]);
   const links = s3Objects
     .split(os.EOL)
-    .filter((obj) => !obj.startsWith('.') && !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
-    .map((obj) => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
     .sort()
+    .filter((obj) => !obj.startsWith('.') && !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
+    .slice(0, maxPreviewLinks)
+    .map((obj) => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
     .join(os.EOL);
   const body = `${previewCommentTitle} - [${s3Location}]${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
   await octokit.graphql(`mutation{addComment(input:{subjectId:"${pullRequestId}",body:"${body}"}){subject{id}}}`);

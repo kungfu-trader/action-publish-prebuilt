@@ -18,6 +18,9 @@ inputs:
   no-comment:
     description: "Do not add comment to GitHub [true/false]"
     default: "false"
+  max-preview-links:
+    description: "Max number of preview links"
+    default: "32"
 runs:
   using: "node12"
   main: "dist/index.js"
