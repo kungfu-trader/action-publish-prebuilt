@@ -115,7 +115,6 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
     '--output',
     'text',
   ]);
-  console.log(`> take ${maxPreviewLinks} links`);
   const links = s3Objects
     .split(os.EOL)
     .sort()
