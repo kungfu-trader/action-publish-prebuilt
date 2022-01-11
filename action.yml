@@ -18,6 +18,9 @@ inputs:
   no-comment:
     description: "Do not add comment to GitHub [true/false]"
     default: "false"
+  preview-files:
+    description: "Pattern for preview file names"
+    default: ".*"
   max-preview-links:
     description: "Max number of preview links"
     default: "32"
