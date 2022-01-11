@@ -89,8 +89,9 @@ exports.publish = function (repo, bucketStaging, bucketRelease) {
   awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors']);
 };
 
-exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket, maxPreviewLinks = 32) {
-  const context = github.context;
+exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket, opts = {}) {
+  const previewPattern = new RegExp(opts.match || '.*');
+  const maxPreviewLinks = opts.limit || 32;
   const octokit = github.getOctokit(token);
   const pullRequestQuery = await octokit.graphql(`
     query {
@@ -118,7 +119,8 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
   const links = s3Objects
     .split(os.EOL)
     .sort()
-    .filter((obj) => !obj.startsWith('.') && !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
+    .filter((obj) => !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
+    .filter((obj) => previewPattern.test(path.basename(obj)))
     .slice(0, maxPreviewLinks)
     .map((obj) => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
     .join(os.EOL);
