@@ -116,17 +116,16 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
     '--output',
     'text',
   ]);
-  const links = s3Objects
-    .split(os.EOL)
-    .sort()
-    .filter((obj) => !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
-    .filter((obj) => previewPattern.test(path.basename(obj)))
-    .slice(0, maxPreviewLinks);
-  if (links.length > 0) {
-    const commentBody = links
+  if (s3Objects !== 'None') {
+    const links = s3Objects
+      .split(os.EOL)
+      .sort()
+      .filter((obj) => !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
+      .filter((obj) => previewPattern.test(path.basename(obj)))
+      .slice(0, maxPreviewLinks)
       .map((obj) => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
       .join(os.EOL);
-    const body = `${previewCommentTitle} - [${s3Location}]${os.EOL}<ul>${os.EOL}${commentBody}${os.EOL}</ul>`;
+    const body = `${previewCommentTitle} - [${s3Location}]${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
     await octokit.graphql(`mutation{addComment(input:{subjectId:"${pullRequestId}",body:"${body}"}){subject{id}}}`);
   }
 };
