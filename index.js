@@ -10,6 +10,9 @@ const main = async function () {
   const artifactsPath = core.getInput('artifacts-path');
   const bucketStaging = core.getInput('bucket-staging');
   const bucketRelease = core.getInput('bucket-release');
+  const cleanRelease = core.getInput('clean-release') !== 'false';
+  const cloudfrontId = core.getInput('cloudfront-id');
+  const cloudfrontPaths = core.getInput('cloudfront-paths');
   const withDigest = core.getInput('no-digest') === 'false';
   const withComment = core.getInput('no-comment') === 'false';
   const previewOpts = {
@@ -50,7 +53,8 @@ const main = async function () {
   }
 
   if (bucketStaging && bucketRelease) {
-    lib.publish(repo.repo, bucketStaging, bucketRelease);
+    lib.publish(repo.repo, bucketStaging, bucketRelease, cleanRelease);
+    lib.refreshCloudfront(cloudfrontId, cloudfrontPaths);
     lib.clean(repo.repo, bucketStaging);
     await deleteComment();
   }

@@ -17,6 +17,9 @@ const main = async function () {
   const artifactsPath = core.getInput('artifacts-path');
   const bucketStaging = core.getInput('bucket-staging');
   const bucketRelease = core.getInput('bucket-release');
+  const cleanRelease = core.getInput('clean-release') !== 'false';
+  const cloudfrontId = core.getInput('cloudfront-id');
+  const cloudfrontPaths = core.getInput('cloudfront-paths');
   const withDigest = core.getInput('no-digest') === 'false';
   const withComment = core.getInput('no-comment') === 'false';
   const previewOpts = {
@@ -57,7 +60,8 @@ const main = async function () {
   }
 
   if (bucketStaging && bucketRelease) {
-    lib.publish(repo.repo, bucketStaging, bucketRelease);
+    lib.publish(repo.repo, bucketStaging, bucketRelease, cleanRelease);
+    lib.refreshCloudfront(cloudfrontId, cloudfrontPaths);
     lib.clean(repo.repo, bucketStaging);
     await deleteComment();
   }
@@ -161,10 +165,17 @@ exports.stage = function (repo, artifactsPath, bucketStaging) {
   });
 };
 
-exports.publish = function (repo, bucketStaging, bucketRelease) {
+exports.publish = function (repo, bucketStaging, bucketRelease, cleanRelease) {
   const source = `s3://${bucketStaging}/${stagingArea(repo)}`;
   const dest = `s3://${bucketRelease}`;
-  awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors']);
+  const cleanOpt = cleanRelease ? ['--delete'] : [];
+  awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors'] + cleanOpt);
+};
+
+exports.refreshCloudfront = function (cloudfrontId, paths) {
+  if (cloudfrontId.trim().length > 0) {
+    awsCall(['cloudfront', 'create-invalidation', '--distribution-id', cloudfrontId, '--paths', paths]);
+  }
 };
 
 exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket, opts = {}) {
