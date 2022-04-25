@@ -169,7 +169,7 @@ exports.publish = function (repo, bucketStaging, bucketRelease, cleanRelease) {
   const source = `s3://${bucketStaging}/${stagingArea(repo)}`;
   const dest = `s3://${bucketRelease}`;
   const cleanOpt = cleanRelease ? ['--delete'] : [];
-  awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors'] + cleanOpt);
+  awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors'].concat(cleanOpt));
 };
 
 exports.refreshCloudfront = function (cloudfrontId, paths) {
