@@ -83,10 +83,17 @@ exports.stage = function (repo, artifactsPath, bucketStaging) {
   });
 };
 
-exports.publish = function (repo, bucketStaging, bucketRelease) {
+exports.publish = function (repo, bucketStaging, bucketRelease, cleanRelease) {
   const source = `s3://${bucketStaging}/${stagingArea(repo)}`;
   const dest = `s3://${bucketRelease}`;
-  awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors']);
+  const cleanOpt = cleanRelease ? ['--delete'] : [];
+  awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors'].concat(cleanOpt));
+};
+
+exports.refreshCloudfront = function (cloudfrontId, paths) {
+  if (cloudfrontId.trim().length > 0) {
+    awsCall(['cloudfront', 'create-invalidation', '--distribution-id', cloudfrontId, '--paths', paths]);
+  }
 };
 
 exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket, opts = {}) {
