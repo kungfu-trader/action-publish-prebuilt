@@ -92,7 +92,7 @@ exports.publish = function (repo, bucketStaging, bucketRelease, cleanRelease) {
 
 exports.refreshCloudfront = function (cloudfrontId, paths) {
   if (cloudfrontId.trim().length > 0) {
-    awsCall(['cloudfront', 'create-invalidation', '--distribution-id', cloudfrontId, '--paths', paths]);
+    awsCall(['cloudfront', 'create-invalidation', '--distribution-id', cloudfrontId, '--paths', `"${paths}"`], opts);
   }
 };
 
