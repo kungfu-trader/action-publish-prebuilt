@@ -26,10 +26,13 @@ const main = async function () {
     lib.setupProxy(awsProxy);
   }
 
-  const addComment = async () => {
+  const addComment = async (opts = {}) => {
     if (withComment) {
       await lib
-        .addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber(), bucketStaging, previewOpts)
+        .addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber(), bucketStaging, {
+          ...previewOpts,
+          ...opts,
+        })
         .catch(console.error);
     }
   };
@@ -55,8 +58,9 @@ const main = async function () {
   if (bucketStaging && bucketRelease) {
     lib.publish(repo.repo, bucketStaging, bucketRelease, cleanRelease);
     lib.refreshCloudfront(cloudfrontId, cloudfrontPaths);
-    lib.clean(repo.repo, bucketStaging);
     await deleteComment();
+    await addComment({ release: true, bucketRelease: bucketRelease });
+    lib.clean(repo.repo, bucketStaging);
   }
 };
 
