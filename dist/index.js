@@ -33,10 +33,13 @@ const main = async function () {
     lib.setupProxy(awsProxy);
   }
 
-  const addComment = async () => {
+  const addComment = async (opts = {}) => {
     if (withComment) {
       await lib
-        .addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber(), bucketStaging, previewOpts)
+        .addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber(), bucketStaging, {
+          ...previewOpts,
+          ...opts,
+        })
         .catch(console.error);
     }
   };
@@ -62,8 +65,9 @@ const main = async function () {
   if (bucketStaging && bucketRelease) {
     lib.publish(repo.repo, bucketStaging, bucketRelease, cleanRelease);
     lib.refreshCloudfront(cloudfrontId, cloudfrontPaths);
-    lib.clean(repo.repo, bucketStaging);
     await deleteComment();
+    await addComment({ release: true, bucketRelease: bucketRelease });
+    lib.clean(repo.repo, bucketStaging);
   }
 };
 
@@ -193,26 +197,34 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
   const s3BaseUrl = s3Location.startsWith('cn')
     ? `https://${bucket}.s3.${s3Location}.amazonaws.com.cn/`
     : `https://${bucket}.s3.amazonaws.com/`;
+  const stagingBase = `${stagingArea(repo)}/`;
   const s3Objects = awsOutput([
     's3api',
     'list-objects-v2',
     '--bucket',
     bucket,
     '--prefix',
-    stagingArea(repo),
+    stagingBase,
     '--query',
     '"Contents[].[Key]"',
     '--output',
     'text',
   ]);
   if (s3Objects !== 'None') {
+    const makeDownloadUrl = (obj) => {
+      if (opts.release) {
+        return `${s3BaseUrl.replace(bucket, opts.bucketRelease)}${obj.replace(stagingBase, '')}`;
+      } else {
+        return `${s3BaseUrl}${obj}`;
+      }
+    };
     const links = s3Objects
       .split(os.EOL)
       .sort()
       .filter((obj) => !obj.endsWith('.md5-checksum') && !obj.endsWith('.blockmap'))
       .filter((obj) => previewPattern.test(path.basename(obj)))
       .slice(0, maxPreviewLinks)
-      .map((obj) => `<li><a href='${s3BaseUrl}${obj}'>${path.basename(obj)}</a></li>`)
+      .map((obj) => `<li><a href='${makeDownloadUrl(obj)}'>${path.basename(obj)}</a></li>`)
       .join(os.EOL);
     const body = `${previewCommentTitle} - [${s3Location}]${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
     await octokit.graphql(`mutation{addComment(input:{subjectId:"${pullRequestId}",body:"${body}"}){subject{id}}}`);
