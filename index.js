@@ -29,7 +29,7 @@ const main = async function () {
   const addComment = async (opts = {}) => {
     if (withComment) {
       await lib
-        .addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber(), bucketStaging, {
+        .addPreviewComment(token, repo.owner, repo.repo, pullRequestNumber(), bucketStaging, bucketRelease, {
           ...previewOpts,
           ...opts,
         })
@@ -39,9 +39,7 @@ const main = async function () {
 
   const deleteComment = async () => {
     if (withComment) {
-      await lib
-        .deletePreviewComment(token, repo.owner, repo.repo, pullRequestNumber(), bucketStaging)
-        .catch(console.error);
+      await lib.deletePreviewComment(token, repo.owner, repo.repo, pullRequestNumber()).catch(console.error);
     }
   };
 

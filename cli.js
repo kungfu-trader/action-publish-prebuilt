@@ -26,7 +26,14 @@ if (argv.artifactsPath && argv.bucketStaging) {
   lib.stage(argv.repo, argv.artifactsPath, argv.bucketStaging);
   if (!argv.noComment) {
     lib
-      .addPreviewComment(argv.token, argv.owner, argv.repo, argv.pullRequestNumber, argv.bucketStaging)
+      .addPreviewComment(
+        argv.token,
+        argv.owner,
+        argv.repo,
+        argv.pullRequestNumber,
+        argv.bucketStaging,
+        argv.bucketRelease,
+      )
       .catch(console.error);
   }
 }
@@ -34,7 +41,5 @@ if (argv.artifactsPath && argv.bucketStaging) {
 if (argv.bucketStaging && argv.bucketRelease) {
   lib.publish(argv.repo, argv.bucketStaging, argv.bucketRelease);
   lib.clean(argv.repo, argv.bucketStaging);
-  lib
-    .deletePreviewComment(argv.token, argv.owner, argv.repo, argv.pullRequestNumber, argv.bucketStaging)
-    .catch(console.error);
+  lib.deletePreviewComment(argv.token, argv.owner, argv.repo, argv.pullRequestNumber).catch(console.error);
 }

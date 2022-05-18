@@ -12,6 +12,7 @@ const spawnOptsInherit = { shell: true, stdio: 'inherit', windowsHide: true };
 const spawnOptsPipe = { shell: true, stdio: 'pipe', windowsHide: true };
 
 const previewCommentTitle = '<b>Preview Download Links</b>';
+const releaseCommentTitle = '<b>Release Download Links</b>';
 
 function currentVersion() {
   const configPath = fs.existsSync('lerna.json') ? 'lerna.json' : 'package.json';
@@ -96,7 +97,16 @@ exports.refreshCloudfront = function (cloudfrontId, paths) {
   }
 };
 
-exports.addPreviewComment = async function (token, owner, repo, pullRequestNumber, bucket, opts = {}) {
+exports.addPreviewComment = async function (
+  token,
+  owner,
+  repo,
+  pullRequestNumber,
+  bucketStaging,
+  bucketRelease,
+  opts = {},
+) {
+  const commentTitle = opts.release ? releaseCommentTitle : previewCommentTitle;
   const previewPattern = new RegExp(opts.match || '.*');
   const maxPreviewLinks = opts.limit || 32;
   const octokit = github.getOctokit(token);
@@ -107,16 +117,16 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
       }
   }`);
   const pullRequestId = pullRequestQuery.repository.pullRequest.id;
-  const s3Location = awsOutput(['s3api', 'get-bucket-location', '--bucket', bucket, '--output', 'text']);
-  const s3BaseUrl = s3Location.startsWith('cn')
-    ? `https://${bucket}.s3.${s3Location}.amazonaws.com.cn/`
-    : `https://${bucket}.s3.amazonaws.com/`;
+  const s3Location = awsOutput(['s3api', 'get-bucket-location', '--bucket', bucketStaging, '--output', 'text']);
+  const s3BaseUrlGlobal = `https://${bucketStaging}.s3.amazonaws.com/`;
+  const s3BaseUrlCN = `https://${bucketStaging}.s3.${s3Location}.amazonaws.com.cn/`;
+  const s3BaseUrl = s3Location.startsWith('cn') ? s3BaseUrlCN : s3BaseUrlGlobal;
   const stagingBase = `${stagingArea(repo)}/`;
   const s3Objects = awsOutput([
     's3api',
     'list-objects-v2',
     '--bucket',
-    bucket,
+    bucketStaging,
     '--prefix',
     stagingBase,
     '--query',
@@ -127,7 +137,7 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
   if (s3Objects !== 'None') {
     const makeDownloadUrl = (obj) => {
       if (opts.release) {
-        return `${s3BaseUrl.replace(bucket, opts.bucketRelease)}${obj.replace(stagingBase, '')}`;
+        return `${s3BaseUrl.replace(bucketStaging, bucketRelease)}${obj.replace(stagingBase, '')}`;
       } else {
         return `${s3BaseUrl}${obj}`;
       }
@@ -140,7 +150,7 @@ exports.addPreviewComment = async function (token, owner, repo, pullRequestNumbe
       .slice(0, maxPreviewLinks)
       .map((obj) => `<li><a href='${makeDownloadUrl(obj)}'>${path.basename(obj)}</a></li>`)
       .join(os.EOL);
-    const body = `${previewCommentTitle} - [${s3Location}]${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
+    const body = `${commentTitle} - [${s3Location}]${os.EOL}<ul>${os.EOL}${links}${os.EOL}</ul>`;
     await octokit.graphql(`mutation{addComment(input:{subjectId:"${pullRequestId}",body:"${body}"}){subject{id}}}`);
   }
 };
@@ -162,7 +172,7 @@ exports.deletePreviewComment = async function (token, owner, repo, pullRequestNu
       }
   }`);
   for (const comment of pullRequestQuery.repository.pullRequest.comments.nodes) {
-    if (comment.body.startsWith(previewCommentTitle)) {
+    if (comment.body.startsWith(previewCommentTitle) || comment.body.startsWith(releaseCommentTitle)) {
       console.log(`> delete comment ${comment.id}`);
       await octokit.graphql(`mutation{deleteIssueComment(input:{id:"${comment.id}"}){clientMutationId}}`);
     }
