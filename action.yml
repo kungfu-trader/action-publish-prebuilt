@@ -34,5 +34,5 @@ inputs:
     description: "Max number of preview links"
     default: "32"
 runs:
-  using: "node12"
+  using: "node16"
   main: "dist/index.js"
