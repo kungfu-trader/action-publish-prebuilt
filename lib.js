@@ -92,6 +92,7 @@ exports.publish = function (repo, bucketStaging, bucketRelease, cleanRelease) {
 };
 
 exports.release = function (repo, artifactsPath, bucketRelease, cleanRelease) {
+  console.log(`find artifacts from ${path.resolve(artifactsPath)}`);
   glob.sync(`${path.resolve(artifactsPath)}/**/build/stage/*`).forEach((source) => {
     const productName = path.basename(source);
     const dest = `s3://${bucketRelease}/${productName}`;
