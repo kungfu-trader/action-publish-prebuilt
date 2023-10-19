@@ -66,7 +66,7 @@ exports.clean = function (repo, bucketStaging) {
 };
 
 exports.digest = function (repo, artifactsPath) {
-  glob.sync(path.join(artifactsPath, '**')).forEach((filePath) => {
+  glob.sync(`${path.resolve(artifactsPath)}/**`).forEach((filePath) => {
     const suffix = '.md5-checksum';
     const stat = fs.lstatSync(filePath);
     if (stat.isFile() && !filePath.endsWith(suffix)) {
@@ -77,7 +77,7 @@ exports.digest = function (repo, artifactsPath) {
 };
 
 exports.stage = function (repo, artifactsPath, bucketStaging) {
-  glob.sync(path.join(artifactsPath, '**', 'build', 'stage', '*')).forEach((source) => {
+  glob.sync(`${path.resolve(artifactsPath)}/**/build/stage/*`).forEach((source) => {
     const productName = path.basename(source);
     const dest = `s3://${bucketStaging}/${stagingArea(repo)}/${productName}`;
     awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors']);
@@ -89,6 +89,15 @@ exports.publish = function (repo, bucketStaging, bucketRelease, cleanRelease) {
   const dest = `s3://${bucketRelease}`;
   const cleanOpt = cleanRelease ? ['--delete'] : [];
   awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors'].concat(cleanOpt));
+};
+
+exports.release = function (repo, artifactsPath, bucketRelease, cleanRelease) {
+  glob.sync(`${path.resolve(artifactsPath)}/**/build/stage/*`).forEach((source) => {
+    const productName = path.basename(source);
+    const dest = `s3://${bucketRelease}/${productName}`;
+    const cleanOpt = cleanRelease ? ['--delete'] : [];
+    awsCall(['s3', 'sync', source, dest, '--acl', 'public-read', '--only-show-errors'].concat(cleanOpt));
+  });
 };
 
 exports.refreshCloudfront = function (cloudfrontId, paths) {
