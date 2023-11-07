@@ -60,6 +60,11 @@ const main = async function () {
     await addComment({ release: true, bucketRelease: bucketRelease });
     lib.clean(repo.repo, bucketStaging);
   }
+
+  if (artifactsPath && bucketRelease) {
+    lib.release(repo.repo, artifactsPath, bucketRelease, cleanRelease);
+    lib.refreshCloudfront(cloudfrontId, cloudfrontPaths);
+  }
 };
 
 if (process.env.GITHUB_ACTION) {
